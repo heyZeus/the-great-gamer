@@ -1,0 +1,13 @@
+
+Integer maxLoop = args[0] as Integer
+
+println ""
+
+(1..maxLoop).each { number -> 
+  String stars = "*" * number 
+  println "  ${number} ${stars}"
+}
+
+println ""
+
+

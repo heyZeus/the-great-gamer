@@ -1,0 +1,11 @@
+#!/home/bdoyle/lib/groovy/groovy-1.8.6/bin/groovy
+
+import java.text.DecimalFormat
+
+String input = args[0] as String
+
+DecimalFormat formatter = new DecimalFormat( "#,###,###,##0.00")
+def result = formatter.format(Eval.me("${input}"))
+println ""
+println "${input} = ${result}"
+println ""
