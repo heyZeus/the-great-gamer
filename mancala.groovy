@@ -48,7 +48,7 @@ class Board {
   }
 
   public String toString() {
-    return "${rows.join('\n')}"
+    return "${rows[0].toString(true)}\n${rows[1].toString(false)}"
   }
 
   public Row winnerRow() {
@@ -118,10 +118,10 @@ class Pot {
 
   public String toString() {
     if (isBank()) {
-      return "Bank, count: ${beanCount}"
+      return "Bank ${beanCount}"
     }
     else {
-      return "Pot ${toChar()}: count: ${beanCount}"
+      return "Pot ${toChar()}:${beanCount}"
     }
   }
 
@@ -162,8 +162,13 @@ class Row {
     }
   }
 
+  public String toString(boolean reverse) {
+    String potsString = reverse ? pots.reverse().toString() : pots.toString()
+    return "Name: ${userName}, ${potsString}"
+  }
+
   public String toString() {
-    return "Name: ${userName}, ${pots}"
+    toString(false)
   }
 
   public boolean hasAnyRemainingTurns() {
@@ -176,51 +181,68 @@ class Row {
 
   public boolean takeTurn(Pot pot, Row otherRow) {
     int beans = pot.resetBeanCount()
-    Pot nextPot = findNextPot(pot, true)
-    Pot lastPot = pot
+    Pot nextPot = findNextPot(pot)
+    Pot lastPot = nextPot
 
-    while (nextPot != null && beans != 0) {
-      beans = nextPot.addBean(beans)
-      lastPot = nextPot
-      nextPot = findNextPot(nextPot, true)
+    while (nextPot != null && beans > 0) {
+      Map results = addBeans(nextPot, beans, true)
+      if (results.beans > 0) {
+        nextPot = otherRow.getFirstPot()
+        results = otherRow.addBeansMinusBank(nextPot, results.beans)
+        nextPot = getFirstPot()
+      }
+
+      lastPot = results.lastPot
+      beans = results.beans
     }
 
-    if (lastPot?.isBank() && beans == 0) {
+    if (lastPot == findBank()) {
       return true
-    }
-    else if (beans > 0) {
-      beans = otherRow.addBeans(beans)
-      return false
     }
     else {
       return false
     }
   }
 
-  private int addBeans(beans) {
-    Pot pot = pots[0]
-    while (pot != null && beans != 0) {
-      beans = pot.addBean(beans)
-      pot = findNextPot(pot, false)
-    }
-
-    return beans
+  public Pot getFirstPot() {
+    return pots[0]
   }
 
-  private Pot findNextPot(Pot pot, boolean includeBank) { 
+  public Map addBeansMinusBank(Pot pot, int beans) {
+    addBeans(pot, beans, false)
+  }
+
+  private Map addBeans(Pot pot, int beans, boolean includeBank) {
+    Map results = [:]
+    Pot lastPot = pot
+
+    while (pot != null && beans > 0) {
+      beans = pot.addBean(beans)
+      lastPot = pot
+      pot = findNextPot(pot)
+      if (!includeBank && pot.isBank()) {
+        pot = null
+      }
+    }
+
+    results.beans = beans
+    results.lastPot = lastPot
+
+    return results
+  }
+
+  public Map addBeans(Pot pot, int beans) {
+    addBeans(pot, beans, true)
+  }
+
+  private Pot findNextPot(Pot pot) { 
     int currentIndex = pots.indexOf(pot)
 
     if (currentIndex + 1 == pots.size()) {
       return null
     }
     else {
-      Pot nextp = pots[currentIndex + 1]
-      if (nextp.isBank() && !includeBank) {
-        return findNextPot(nextp, includeBank)
-      }
-      else {
-        return nextp
-      }
+      return pots[currentIndex + 1]
     }
   }
 
