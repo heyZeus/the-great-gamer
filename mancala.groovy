@@ -17,11 +17,11 @@ System.in.withReader {
 
   while (rowTurn) {
     println "${rowTurn}"
-    print "Enter the pot: ${rowTurn.validPots()}: "
+    print "Enter the pot: ${rowTurn.validPotsForTurn()*.toChar()}: "
     pot = it.readLine() as char 
-    if (rowTurn.isValidPot(pot)) {
-      println "You entered the letter: ${pot}"
-      board.playTurn(pot)
+    Pot potObject = rowTurn.pots.find { it.toChar() == pot }
+    if (potObject) {
+      board.takeTurn(potObject)
       println ""
       println board.toString()
       println ""
@@ -40,10 +40,11 @@ println "The winner is ${board.winnerRow()}"
 
 class Board {
   Collection<Row> rows = []
-  int currentRowIdx = 1
+  int currentTurnIndex
 
   public Board(String name1, String name2) {
-    rows = [new Row(name2, false), new Row(name1, true)]
+    rows = [new Row(name2, 0), new Row(name1, 1)]
+    currentTurnIndex = 1
   }
 
   public String toString() {
@@ -52,7 +53,7 @@ class Board {
 
   public Row winnerRow() {
     if (!rows.every { it.hasAnyRemainingTurns()} ) {
-      return rows[0].bank > rows[1].bank ? rows[0] : rows[1]
+      return rows[0].bankCount() > rows[1].bankCount() ? rows[0] : rows[1]
     }
     else {
       return null
@@ -69,63 +70,167 @@ class Board {
     }
   }
 
-  public void playTurn(char pot) {
-    if (!currentRow().moveBeansFromPot(pot)) {
-      currentRowIdx = currentRowIdx == 0 ? 1 : 0
+  public void takeTurn(Pot pot) {
+    if (!currentRow().takeTurn(pot, alternateRow())) {
+      currentTurnIndex = alternateRowIndex()
     }
   }
 
   public Row currentRow() {
-    return rows[currentRowIdx]
+    return rows[currentTurnIndex]
+  }
+  
+  public Row alternateRow() {
+    return rows[alternateRowIndex()]
+  }
+
+  public int alternateRowIndex() {
+    currentTurnIndex == 0 ? 1 : 0
+  }
+
+}
+
+class Pot {
+  int index
+  int beanCount
+  Row row 
+
+  public char toChar() {
+    return (97 + index) as char
+  }
+
+  public boolean isBank() {
+    return index == 6
+  }
+
+  @Override 
+  public boolean equals(Object otherPot) {
+    if (this.is(otherPot)) return true
+    if (!(otherPot instanceof Pot) ) return false
+    Pot that = (Pot) otherPot
+
+    return index == that.index && row == that.row
+  }
+
+  public int hashCode() {
+    return index.hashCode() + row.hashCode()
+  }
+
+  public String toString() {
+    if (isBank()) {
+      return "Bank, count: ${beanCount}"
+    }
+    else {
+      return "Pot ${toChar()}: count: ${beanCount}"
+    }
+  }
+
+  public int addBean(int beans) {
+    beanCount += 1
+    return beans - 1
+  }
+
+  public int resetBeanCount() {
+    int tmpCount = beanCount
+    beanCount = 0
+    return tmpCount
   }
 
 }
 
 class Row { 
-  int bank = 0
-  LinkedHashMap pots = [:]
+  Collection<Pot> pots = []
   String userName
-  int turnsTaken = 0 
-  boolean topRow = false
+  int index
 
-  public Row(String userName, topRow) {
+  public Row(String userName, int index) {
     this.userName = userName
-    this.topRow = topRow
+    this.index = index
     
     int potsPerSide = 6
-    int aChar = 97
 
-    (0..(potsPerSide - 1)).each { pot ->
-      char letter = (pot + aChar) as char
-      pots[letter] = 4
+    (0..(potsPerSide - 1)).each { int num ->
+      pots << new Pot(index: num, beanCount: 4, row: this)
     }
 
-    bank = 0
+    pots << new Pot(index: 6, beanCount: 0)
   }
 
-  public Collection validPots() {
-    return pots.findAll { pot, beadCount ->
-      return beadCount > 0
-    }.keySet()
+  public Collection<Pot> validPotsForTurn() {
+    return pots.findAll { Pot pot ->
+      !pot.isBank() && pot.beanCount > 0
+    }
   }
 
   public String toString() {
-    return "TopRow: ${topRow}, Name: ${userName}, Bank: ${bank}, Pots: ${pots}"
-  }
-
-  public boolean isValidPot(char pot) {
-    return validPots().contains(pot)
+    return "Name: ${userName}, ${pots}"
   }
 
   public boolean hasAnyRemainingTurns() {
-    return turnsTaken == 0
+    return potsMinusBank().any { it.beanCount > 0 }
   }
 
-  public boolean moveBeansFromPot(char pot) {
-    turnsTaken += 1
-    println "Turns taken ${turnsTaken}"
-    return false
+  private Collection<Pot> potsMinusBank() {
+    pots.findAll { !it.isBank() }
   }
+
+  public boolean takeTurn(Pot pot, Row otherRow) {
+    int beans = pot.resetBeanCount()
+    Pot nextp = nextPot(pot)
+    Pot lastp = null
+
+    while (nextp != null && beans != 0) {
+      beans = nextp.addBean(beans)
+      lastp = nextp
+      nextp = nextPot(nextp)
+    }
+
+    if (lastp?.isBank() && beans == 0) {
+      return true
+    }
+    else {
+      return false
+    }
+  }
+
+  private Pot nextPot(Pot pot) { 
+    def currentIndex = pots.indexOf(pot)
+    if (currentIndex + 1 > pots.size()) {
+      return null
+    }
+    else {
+      return pots[currentIndex + 1]
+    }
+  }
+
+  public int bankCount() {
+    return findBank().beanCount
+  }
+
+  public Pot findBank() {
+    pots.find { it.isBank() }
+  }
+   
+  //private char addBeans(char startingPot, int beans, boolean includeBank) {
+    //Collection potLetters = pots.keySet()
+    //int potSize = potLetters.size()
+    //int max = beans > potSize : potSize : beans
+
+    //char lastPotLetter = null
+
+    //(1..max).each { bean ->
+      //char letter = potLetters.next()
+      //pots[letter] += 1
+      //lastPotLetter = letter
+    //}
+
+    //if (includeBank && beans > potSize) {
+      //bank += 1
+      //lastPotLetter = null
+    //}
+
+    //return lastPotLetter 
+  //}
 
 }
 
