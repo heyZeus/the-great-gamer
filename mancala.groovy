@@ -176,30 +176,51 @@ class Row {
 
   public boolean takeTurn(Pot pot, Row otherRow) {
     int beans = pot.resetBeanCount()
-    Pot nextp = nextPot(pot)
-    Pot lastp = null
+    Pot nextPot = findNextPot(pot, true)
+    Pot lastPot = pot
 
-    while (nextp != null && beans != 0) {
-      beans = nextp.addBean(beans)
-      lastp = nextp
-      nextp = nextPot(nextp)
+    while (nextPot != null && beans != 0) {
+      beans = nextPot.addBean(beans)
+      lastPot = nextPot
+      nextPot = findNextPot(nextPot, true)
     }
 
-    if (lastp?.isBank() && beans == 0) {
+    if (lastPot?.isBank() && beans == 0) {
       return true
+    }
+    else if (beans > 0) {
+      beans = otherRow.addBeans(beans)
+      return false
     }
     else {
       return false
     }
   }
 
-  private Pot nextPot(Pot pot) { 
-    def currentIndex = pots.indexOf(pot)
-    if (currentIndex + 1 > pots.size()) {
+  private int addBeans(beans) {
+    Pot pot = pots[0]
+    while (pot != null && beans != 0) {
+      beans = pot.addBean(beans)
+      pot = findNextPot(pot, false)
+    }
+
+    return beans
+  }
+
+  private Pot findNextPot(Pot pot, boolean includeBank) { 
+    int currentIndex = pots.indexOf(pot)
+
+    if (currentIndex + 1 == pots.size()) {
       return null
     }
     else {
-      return pots[currentIndex + 1]
+      Pot nextp = pots[currentIndex + 1]
+      if (nextp.isBank() && !includeBank) {
+        return findNextPot(nextp, includeBank)
+      }
+      else {
+        return nextp
+      }
     }
   }
 
@@ -211,27 +232,6 @@ class Row {
     pots.find { it.isBank() }
   }
    
-  //private char addBeans(char startingPot, int beans, boolean includeBank) {
-    //Collection potLetters = pots.keySet()
-    //int potSize = potLetters.size()
-    //int max = beans > potSize : potSize : beans
-
-    //char lastPotLetter = null
-
-    //(1..max).each { bean ->
-      //char letter = potLetters.next()
-      //pots[letter] += 1
-      //lastPotLetter = letter
-    //}
-
-    //if (includeBank && beans > potSize) {
-      //bank += 1
-      //lastPotLetter = null
-    //}
-
-    //return lastPotLetter 
-  //}
-
 }
 
 
